@@ -4,7 +4,7 @@ type Props = { userPromise: Promise<any> };
 
 export default async function EarningsSummary({ userPromise }: Props) {
   const user = await userPromise;
-  const res = await fetch(`${API_URL}/freelancer/earnings/summary?freelancerId=${encodeURIComponent(user.id)}`, {
+  const res = await fetch(`${API_URL}/freelancers/earnings/summary?freelancerId=${encodeURIComponent(user.id)}`, {
     next: { revalidate: 60 },
   });
   const summary = res.ok ? await res.json() : null;
