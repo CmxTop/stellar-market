@@ -90,7 +90,7 @@ export const authenticate = async (
       "/auth/logout",
     ];
 
-    const isExempt = exemptRoutes.some((route) => req.path.includes(route));
+    const isExempt = exemptRoutes.some((route) => req.path.startsWith(route));
 
     if (!isExempt && !user.emailVerified) {
       res.status(403).json({
