@@ -33,6 +33,7 @@ const prisma = new PrismaClient();
  */
 router.get(
   "/horizon/status",
+  requireAdmin,
   async (_req: AuthRequest, res: Response): Promise<void> => {
     try {
       const status = await getHorizonStatus();
@@ -50,6 +51,7 @@ router.get(
  */
 router.post(
   "/horizon/cursor",
+  requireAdmin,
   validate({
     body: z.object({
       cursor: z.string().min(1, "Cursor is required"),
@@ -82,6 +84,7 @@ router.post(
  */
 router.post(
   "/horizon/dlq/replay",
+  requireAdmin,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const result = await replayHorizonDlq();
