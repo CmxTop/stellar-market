@@ -6,7 +6,7 @@ process.env.ENCRYPTION_KEY =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 process.env.NATIVE_TOKEN_ID =
   process.env.NATIVE_TOKEN_ID ||
-  "CDLZFC3SYJYDZT7K67VZ75YJBMKBAV27Z6Y6Z6Z6Z6Z6Z6Z6Z6Z6Z6Z6Z";
+  "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 
 // ─── src/config/redis ────────────────────────────────────────────────────────
 // Prevent Redis TCP connections during tests.
