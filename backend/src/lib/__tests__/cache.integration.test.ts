@@ -5,6 +5,7 @@ import { EventEmitter } from "events";
 import { config } from "../../config";
 import jobRouter from "../../routes/job.routes";
 import userRouter from "../../routes/user.routes";
+import { invalidateCache } from "../cache";
 
 // Produces a scanStream-compatible EventEmitter that emits batches then 'end'.
 function makeScanStream(batches: string[][]): EventEmitter {
@@ -136,10 +137,6 @@ function authHeader(userId = USER_TEST_ID) {
   return { Authorization: `Bearer ${token}` };
 }
 
-// Import invalidateCache for direct unit testing (must come after mocks are set up).
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { invalidateCache } = require("../cache") as typeof import("../cache");
-
 beforeEach(() => {
   jest.clearAllMocks();
   // Re-wire pipeline mock after clearAllMocks so chained .del() calls still work.
@@ -212,7 +209,7 @@ describe("invalidateCache", () => {
   });
 
   it("swallows scan stream errors without throwing", async () => {
-    const errStream = new (require("events").EventEmitter)();
+    const errStream = new EventEmitter();
     mockRedis.scanStream.mockReturnValueOnce(errStream);
 
     const promise = invalidateCache("jobs:list:*");
