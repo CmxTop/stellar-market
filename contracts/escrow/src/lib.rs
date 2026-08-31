@@ -61,7 +61,7 @@ pub enum EscrowError {
     /// The milestone list is empty.
     EmptyMilestones = 33,
     /// The number of milestones exceeds the permitted limit.
-    TooManyMilestones = 48,
+    TooManyMilestones = 34,
     /// The fee basis points exceed the maximum permitted limit.
     InvalidFee = 35,
     /// Proposal execution is time-locked and cannot be executed yet.
