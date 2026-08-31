@@ -2070,6 +2070,115 @@ fn test_resolve_dispute_callback_refund_both() {
     assert_eq!(token_client.balance(&freelancer), each);
 }
 
+// ── #1178 — Escalate leaves the job parked in Disputed ────────────────────────
+//
+// These lock the behaviour now documented on `JobStatus` under "Escalated
+// disputes": Escalate is a self-loop that moves no funds, and the job leaves
+// Disputed only via a later resolution or via expire_job.
+
+/// Helper: create + fund a single-milestone job and drive it into Disputed
+/// through the registered dispute contract. Returns (job_id, amount).
+fn setup_disputed_job(
+    env: &Env,
+    escrow: &EscrowContractClient<'_>,
+    client: &Address,
+    freelancer: &Address,
+    token: &Address,
+    admin: &Address,
+) -> (u64, i128) {
+    let amount: i128 = 1000;
+    let milestones = vec![
+        env,
+        (String::from_str(env, "Task 1"), amount, JOB_DEADLINE),
+    ];
+    let job_id = escrow.create_job(
+        client,
+        freelancer,
+        token,
+        &milestones,
+        &JOB_DEADLINE,
+        &GRACE_PERIOD,
+        &DEFAULT_EXPIRY_LEDGER,
+    );
+    escrow.fund_job(&job_id, client, &0, &0);
+
+    let dispute_contract = Address::generate(env);
+    escrow.set_dispute_contract(admin, &dispute_contract);
+    escrow.mark_job_disputed(&job_id, &1_u64);
+
+    (job_id, amount)
+}
+
+#[test]
+fn test_resolve_dispute_callback_escalate_keeps_job_disputed_and_funds_escrowed() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = 1000);
+
+    let (escrow, client, freelancer, token, admin) = setup_test(&env);
+    let (job_id, amount) = setup_disputed_job(&env, &escrow, &client, &freelancer, &token, &admin);
+
+    let token_client = TokenClient::new(&env, &token);
+    let client_before = token_client.balance(&client);
+    let freelancer_before = token_client.balance(&freelancer);
+
+    escrow.resolve_dispute_callback(&job_id, &DisputeResolution::Escalate);
+
+    // Self-loop: status is untouched and the escrow still holds the full amount.
+    let job = escrow.get_job(&job_id);
+    assert_eq!(job.status, JobStatus::Disputed);
+    assert_eq!(token_client.balance(&escrow.address), amount);
+    assert_eq!(token_client.balance(&client), client_before);
+    assert_eq!(token_client.balance(&freelancer), freelancer_before);
+}
+
+#[test]
+fn test_escalated_job_can_be_resolved_by_a_later_callback() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = 1000);
+
+    let (escrow, client, freelancer, token, admin) = setup_test(&env);
+    let (job_id, amount) = setup_disputed_job(&env, &escrow, &client, &freelancer, &token, &admin);
+
+    // Escalate twice — re-callable, still no settlement.
+    escrow.resolve_dispute_callback(&job_id, &DisputeResolution::Escalate);
+    escrow.resolve_dispute_callback(&job_id, &DisputeResolution::Escalate);
+    assert_eq!(escrow.get_job(&job_id).status, JobStatus::Disputed);
+
+    // The higher tier finally rules: the job settles with the escrow intact.
+    escrow.resolve_dispute_callback(&job_id, &DisputeResolution::FreelancerWins);
+
+    let job = escrow.get_job(&job_id);
+    assert_eq!(job.status, JobStatus::Completed);
+
+    let token_client = TokenClient::new(&env, &token);
+    assert_eq!(token_client.balance(&freelancer), amount);
+}
+
+#[test]
+fn test_escalated_job_can_still_expire_after_deadline() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = 1000);
+
+    let (escrow, client, freelancer, token, admin) = setup_test(&env);
+    let (job_id, amount) = setup_disputed_job(&env, &escrow, &client, &freelancer, &token, &admin);
+
+    let token_client = TokenClient::new(&env, &token);
+    let client_before = token_client.balance(&client);
+
+    escrow.resolve_dispute_callback(&job_id, &DisputeResolution::Escalate);
+
+    // Backstop path: nobody re-resolves, the deadline passes, anyone can expire it.
+    env.ledger().with_mut(|l| l.timestamp = JOB_DEADLINE + 1);
+    escrow.expire_job(&job_id);
+
+    let job = escrow.get_job(&job_id);
+    assert_eq!(job.status, JobStatus::Expired);
+    assert_eq!(token_client.balance(&client), client_before + amount);
+}
+
 // ── Pause mechanism tests ─────────────────────────────────────────────────────
 
 #[test]
