@@ -309,7 +309,7 @@ fn test_create_job_empty_milestones() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #48)")] // TooManyMilestones
+#[should_panic(expected = "HostError: Error(Contract, #34)")] // TooManyMilestones
 fn test_create_job_too_many_milestones() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1343,7 +1343,7 @@ fn test_propose_revision_fails_when_pending_proposal_exists() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #48)")] // TooManyMilestones
+#[should_panic(expected = "HostError: Error(Contract, #34)")] // TooManyMilestones
 fn test_propose_revision_too_many_milestones() {
     let env = Env::default();
     env.mock_all_auths();
@@ -8121,4 +8121,44 @@ fn test_accept_revision_sub_assign_unchanged_on_milestone_growth() {
 
     assert_eq!(tc.balance(&sub_freelancer) - sub_before, 400);
     assert_eq!(tc.balance(&freelancer) - fl_before, 2_000 - 400);
+}
+
+// ─── #1156: get_price_oracle coverage ─────────────────────────────────────────
+
+#[test]
+fn test_get_price_oracle_unset_returns_none() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (contract, _client, _freelancer, _token, _admin) = setup_test(&env);
+
+    // Fresh contract — no oracle configured yet
+    assert!(contract.get_price_oracle().is_none());
+}
+
+#[test]
+fn test_get_price_oracle_returns_set_address() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (contract, _client, _freelancer, _token, admin) = setup_test(&env);
+
+    let oracle = Address::generate(&env);
+    contract.set_price_oracle(&admin, &oracle);
+
+    assert_eq!(contract.get_price_oracle(), Some(oracle));
+}
+
+#[test]
+fn test_set_price_oracle_overwrites_previous_value() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (contract, _client, _freelancer, _token, admin) = setup_test(&env);
+
+    let oracle_first = Address::generate(&env);
+    let oracle_second = Address::generate(&env);
+
+    contract.set_price_oracle(&admin, &oracle_first);
+    assert_eq!(contract.get_price_oracle(), Some(oracle_first));
+
+    contract.set_price_oracle(&admin, &oracle_second);
+    assert_eq!(contract.get_price_oracle(), Some(oracle_second));
 }
